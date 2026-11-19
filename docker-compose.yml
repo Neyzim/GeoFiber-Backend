@@ -11,5 +11,3 @@ services:
       - ${postgres_ports}
     volumes:
       - ./data/postgres:/var/lib/postgresql
-
-

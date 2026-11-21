@@ -113,11 +113,18 @@ Todos os ativos de rede (OLT, cabo, caixa) compartilham nome, descrição, UUID 
 - **RN-14** Números de tubo (por cabo) e de fibra (por tubo e por cabo) são únicos: `409` com
   mensagem nomeando o recurso.
 - **RN-15** O comprimento do cabo é calculado pelo PostGIS a partir do traçado (metros, geodésico).
+- **RN-37** `POST /cables/{id}/structure` cria vários tubos e preenche cada um até a capacidade,
+  numa única transação. Fibras recebem as cores ABNT na ordem do enum (verde, amarelo, branco,
+  azul, vermelho, violeta, marrom, rosa, preto, cinza, laranja, turquesa; recomeça a cada 12) e
+  numeração absoluta contínua após as fibras já existentes no cabo. Qualquer violação de RN-12 a
+  RN-14 desfaz a operação inteira. Lista vazia: 400.
 
 ### 3.4 Caixas, bandejas e emendas
 - **RN-16** `trayCapacity` limita o número da bandeja: `400 "Box supports at most N trays"`.
-- **RN-17** Emenda exige bandeja existente e ocupa a **menor posição livre** dela. Sem posição
-  livre: `409 "Tray N is full"`.
+- **RN-17** Emenda exige bandeja existente. Se `positionNumber` for fornecido, ocupa aquela posição
+  (validação: dentro do range 1..capacity e disponível); se omitido, ocupa a **menor posição livre**.
+  Sem posição livre: `409 "Tray N is full"`. Posição ocupada: `409 "Position N is already occupied in this tray"`.
+  Posição fora do range: `400 "Position N exceeds tray capacity of M"`.
 - **RN-18** Emenda liga duas fibras diferentes: `400 "Input and output fibers must be different"`.
 - **RN-19** Excluir uma emenda libera as duas pontas.
 
@@ -211,9 +218,46 @@ cabo e as portas de atendimento geradas por um splitter excluído.
 - **RT-06 Documentação:** OpenAPI em `/v3/api-docs` e Swagger UI em `/swagger-ui.html`, com tags e
   resumos em português; guia em `API.md`.
 - **RT-07 Testes:** `./gradlew test`. Integração com Testcontainers (`postgis/postgis:16-3.4`),
-  tabelas truncadas após cada teste; o banco local não é tocado. 65 testes na conclusão da Fase 1.
+  tabelas truncadas após cada teste; o banco local não é tocado. 74 testes na conclusão da Fase 1.
 - **RT-08 Transações:** cada operação de escrita é atômica; falha de regra no meio da operação
   desfaz tudo (ex.: splitter sem capacidade não deixa splitter nem portas).
+- **RT-09 CORS:** liberado em `/api/**` para as origens de `geofiber.cors.allowed-origins`
+  (variável `CORS_ALLOWED_ORIGINS`, padrão `http://localhost:4200`); outras origens recebem 403
+  no preflight. Header `Location` exposto.
+- **RT-10 Leituras agregadas para o frontend** (consultas em lote, sem N+1):
+  - `GET /boxes/{id}/overview`: caixa, cabos anexados, bandejas, emendas, splitters, portas de
+    atendimento, conexões e clientes.
+  - `GET /boxes/{id}/cables` e `GET /olts/{id}/cables`: cabos anexados com o papel do elemento.
+  - `GET /cables/{id}/fibers`: fibras com tubo, status e a ligação de cada ponta (tipo, id,
+    elemento e, em fusão/conector, a fibra do outro lado).
+- **RT-11 Importação de rede** (`POST /imports/network`): o front envia uma lista pronta (caixas,
+  OLTs, cabos e pontas). O backend não lê arquivo e grava tudo numa transação: qualquer falha
+  desfaz a importação inteira. Não apaga nada e não cria fibra, tubo, fusão, splitter, porta ou
+  cliente. Limites: até 10.000 itens (`400 "Import exceeds 10000 items"`).
+  - Duplicado: `CREATE` de caixa ou OLT cujo tipo e nome normalizado já existem na rede, ou
+    repetidos na própria importação → `409 "Import has elements that already exist"`. Cabos não
+    entram nesta regra.
+  - Nome normalizado: sem acento, minúsculas, `-` e `_` viram espaço, pontas aparadas.
+  - `RESHAPE` de cabo com alguma ponta de fibra ligada (porta, splitter, atendimento ou conexão
+    óptica, inclusive fusão) → `409 "Cable has connected fibers and cannot be reshaped"`.
+  - Pontas `start`/`end` do cabo: `ref` (elemento `CREATE` desta importação), `boxId` ou `oltId`
+    (existentes). Cabo `CREATE` sem ponta fica sem ligação física. Não cria `PASS_THROUGH`.
+- **RT-12 Rastreio da fibra** (`GET /trace/{kind}/{id}?direction=UPSTREAM|DOWNSTREAM`): só leitura.
+  Anda pela cadeia fibra → ligação (porta, conexão óptica ou nada) e para em OLT, cliente ou quebra.
+  Cada ponta tem uma única ligação, então só há escolha na entrada de splitter, onde a descida
+  devolve o resumo das saídas (`branches`) e não lista os clientes. Limites: cada ponto é visitado
+  uma vez (`LOOP`) e o caminho para em 50 passos (`DEPTH_LIMIT`).
+  - Partida por caixa: a primeira entrada de splitter ligada a uma fibra; sem ela, a primeira
+    conexão da caixa; sem nada, `EMPTY`.
+  - Saída de splitter sem cliente, com porta de atendimento vazia, conta como `NO_CUSTOMER` no
+    caminho e como `FREE` no resumo (não é quebra de rede).
+  - Posição de quebra: o equipamento onde a ponta está ligada; ponta sem ligação usa o elemento de
+    início (A) ou de fim (B) do cabo.
+- **RT-13 Impacto de manutenção** (`GET /impact/cables/{id}`, `/impact/boxes/{id}`, `/impact/olts/{id}`):
+  só leitura. Um cliente depende do item quando o caminho UPSTREAM dele (o mesmo do RT-12) passa por
+  ele: cabo pelo trecho de fibra; caixa por qualquer elemento dentro dela (incluindo a porta de
+  atendimento do cliente); OLT pela porta PON. Cliente cancelado não conta. Sem rota alternativa.
+  Um cliente conta uma vez. `totals` são exatos; a lista de clientes para em 2000 (`truncated`).
 
 ---
 

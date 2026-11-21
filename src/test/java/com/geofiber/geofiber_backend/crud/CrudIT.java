@@ -234,4 +234,58 @@ class CrudIT extends IntegrationTest {
 
         assertEquals(1, (Integer) JsonPath.read(reused, "$.positionNumber"));
     }
+
+    @Test
+    void spliceAcceptsAndUsesProvidedPosition() {
+        UUID box = fx.box("CEO", null, 1);
+        fx.tray(box, 1, 3);
+        UUID cable = fx.cable(12);
+        fx.attachToBox(cable, box);
+        UUID tube = fx.tube(cable, 1, 12);
+        String splicesUrl = API + "/boxes/" + box + "/splices";
+        String spliceBody = "{\"trayNumber\":1,\"inputFiberId\":\"%s\",\"outputFiberId\":\"%s\",\"positionNumber\":%d}";
+
+        String splice2 = fx.postJson(splicesUrl, spliceBody.formatted(fx.fiber(tube, 1, 1), fx.fiber(tube, 2, 2), 2), 201);
+        assertEquals(2, (Integer) JsonPath.read(splice2, "$.positionNumber"));
+
+        // posição 2 já está ocupada
+        assertEquals("Position 2 is already occupied in this tray",
+            detail(fx.postJson(splicesUrl, spliceBody.formatted(fx.fiber(tube, 3, 3), fx.fiber(tube, 4, 4), 2), 409)));
+    }
+
+    @Test
+    void spliceRejectsPositionOutOfRange() {
+        UUID box = fx.box("CEO", null, 1);
+        fx.tray(box, 1, 2);
+        UUID cable = fx.cable(12);
+        fx.attachToBox(cable, box);
+        UUID tube = fx.tube(cable, 1, 12);
+        String splicesUrl = API + "/boxes/" + box + "/splices";
+        String spliceBody = "{\"trayNumber\":1,\"inputFiberId\":\"%s\",\"outputFiberId\":\"%s\",\"positionNumber\":%d}";
+
+        assertEquals("Position 5 exceeds tray capacity of 2",
+            detail(fx.postJson(splicesUrl, spliceBody.formatted(fx.fiber(tube, 1, 1), fx.fiber(tube, 2, 2), 5), 400)));
+    }
+
+    @Test
+    void spliceStillFindsNextFreeWhenPositionNotProvided() {
+        UUID box = fx.box("CEO", null, 1);
+        fx.tray(box, 1, 3);
+        UUID cable = fx.cable(12);
+        fx.attachToBox(cable, box);
+        UUID tube = fx.tube(cable, 1, 12);
+        String splicesUrl = API + "/boxes/" + box + "/splices";
+        String spliceBodyNoPos = "{\"trayNumber\":1,\"inputFiberId\":\"%s\",\"outputFiberId\":\"%s\"}";
+
+        String first = fx.postJson(splicesUrl, spliceBodyNoPos.formatted(fx.fiber(tube, 1, 1), fx.fiber(tube, 2, 2)), 201);
+        assertEquals(1, (Integer) JsonPath.read(first, "$.positionNumber"));
+
+        String second = fx.postJson(splicesUrl, spliceBodyNoPos.formatted(fx.fiber(tube, 3, 3), fx.fiber(tube, 4, 4)), 201);
+        assertEquals(2, (Integer) JsonPath.read(second, "$.positionNumber"));
+
+        fx.delete(splicesUrl + "/" + JsonPath.read(first, "$.id"), 204);
+
+        String third = fx.postJson(splicesUrl, spliceBodyNoPos.formatted(fx.fiber(tube, 5, 5), fx.fiber(tube, 6, 6)), 201);
+        assertEquals(1, (Integer) JsonPath.read(third, "$.positionNumber"));
+    }
 }

@@ -23,4 +23,8 @@ public interface CableAttachmentRepository extends JpaRepository<CableAttachment
     @Modifying(flushAutomatically = true, clearAutomatically = false)
     @Query("delete from CableAttachmentEntity a where a.cable.id = :cableId")
     void deleteAllByCableId(@Param("cableId") UUID cableId);
+
+    List<CableAttachmentEntity> findAllByBox_IdOrderByCable_NameAsc(UUID boxId);
+
+    List<CableAttachmentEntity> findAllByOlt_IdOrderByCable_NameAsc(UUID oltId);
 }

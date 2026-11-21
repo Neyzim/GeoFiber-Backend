@@ -1,5 +1,6 @@
 package com.geofiber.geofiber_backend.controllers.errors;
 
+import com.geofiber.geofiber_backend.services.imports.ImportValidationException;
 import org.hibernate.exception.ConstraintViolationException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpHeaders;
@@ -37,6 +38,13 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
             .toList();
         problem.setProperty("errors", errors);
         return handleExceptionInternal(exception, problem, headers, HttpStatus.BAD_REQUEST, request);
+    }
+
+    @ExceptionHandler(ImportValidationException.class)
+    public ProblemDetail handleImportValidation(ImportValidationException exception) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, "Invalid import");
+        problem.setProperty("errors", exception.getErrors());
+        return problem;
     }
 
     @ExceptionHandler(DataIntegrityViolationException.class)

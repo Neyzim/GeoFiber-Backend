@@ -67,6 +67,13 @@ public class CustomerService {
         return toResponse(getCustomer(id));
     }
 
+    /** Clientes atendidos pelas portas de atendimento da caixa. */
+    @Transactional(readOnly = true)
+    public List<CustomerResponse> findByBox(UUID boxId) {
+        return customerRepository.findAllByServicePort_Box_IdOrderByNameAsc(boxId).stream()
+            .map(this::toResponse).toList();
+    }
+
     @Transactional(readOnly = true)
     public List<CustomerHistoryResponse> findHistory(UUID id) {
         getCustomer(id);

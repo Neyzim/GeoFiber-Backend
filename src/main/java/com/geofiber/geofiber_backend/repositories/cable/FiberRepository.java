@@ -14,4 +14,10 @@ public interface FiberRepository extends JpaRepository<FiberEntity, UUID> {
     @org.springframework.data.jpa.repository.Query(
         "select coalesce(max(f.numberInTube), 0) from FiberEntity f where f.tube.id = :tubeId")
     int findHighestNumberInTube(@org.springframework.data.repository.query.Param("tubeId") UUID tubeId);
+
+    List<FiberEntity> findAllByCable_IdOrderByAbsoluteNumberAsc(UUID cableId);
+
+    @org.springframework.data.jpa.repository.Query(
+        "select coalesce(max(f.absoluteNumber), 0) from FiberEntity f where f.cable.id = :cableId")
+    int findHighestAbsoluteNumber(@org.springframework.data.repository.query.Param("cableId") UUID cableId);
 }

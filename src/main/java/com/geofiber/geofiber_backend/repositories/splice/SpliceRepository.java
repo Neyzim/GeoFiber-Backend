@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 public interface SpliceRepository extends JpaRepository<SpliceEntity, UUID> {
@@ -22,4 +23,10 @@ public interface SpliceRepository extends JpaRepository<SpliceEntity, UUID> {
         WHERE NOT EXISTS (SELECT 1 FROM splice s WHERE s.tray_id = :trayId AND s.position_number = g)
         ORDER BY g LIMIT 1""", nativeQuery = true)
     Integer findFirstFreePosition(@Param("trayId") UUID trayId, @Param("capacity") int capacity);
+
+    boolean existsByTray_IdAndPositionNumber(UUID trayId, Integer positionNumber);
+
+    List<SpliceEntity> findAllByConnection_IdIn(java.util.Collection<UUID> connectionIds);
+
+    Optional<SpliceEntity> findByConnection_Id(UUID connectionId);
 }

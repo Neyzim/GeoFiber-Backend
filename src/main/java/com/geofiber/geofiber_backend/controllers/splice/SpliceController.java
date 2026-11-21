@@ -24,7 +24,7 @@ public class SpliceController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    @Operation(summary = "Registra uma fusão na próxima posição livre da bandeja")
+    @Operation(summary = "Registra uma fusão na bandeja; posição pode ser fornecida ou será a próxima livre")
     public SpliceResponse create(@PathVariable UUID boxId, @Valid @RequestBody SpliceRequest request) {
         return spliceService.create(boxId, request);
     }

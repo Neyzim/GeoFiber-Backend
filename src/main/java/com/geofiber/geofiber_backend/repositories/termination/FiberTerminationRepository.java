@@ -54,4 +54,20 @@ public interface FiberTerminationRepository extends JpaRepository<FiberTerminati
         )
         """, nativeQuery = true)
     boolean existsCableConnectionInOlt(@Param("cableId") UUID cableId, @Param("oltId") UUID oltId);
+
+    List<FiberTerminationEntity> findAllByFiber_IdIn(Collection<UUID> fiberIds);
+
+    /** Alguma ponta de fibra do cabo está ligada a uma porta (OLT, splitter, atendimento) ou a uma conexão óptica (fusão ou conector)? */
+    @Query(value = """
+        SELECT EXISTS (
+            SELECT 1 FROM fiber_termination t
+            JOIN fiber f ON f.id = t.fiber_id
+            WHERE f.cable_id = :cableId
+              AND (t.olt_port_id IS NOT NULL OR t.splitter_port_id IS NOT NULL OR t.service_port_id IS NOT NULL
+                   OR EXISTS (
+                       SELECT 1 FROM optical_connection c
+                       WHERE c.termination_a_id = t.id OR c.termination_b_id = t.id))
+        )
+        """, nativeQuery = true)
+    boolean existsConnectedFiberInCable(@Param("cableId") UUID cableId);
 }

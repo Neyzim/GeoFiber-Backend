@@ -62,9 +62,23 @@ public class SpliceService {
         BoxAssetEntity box = boxRepository.findById(boxId).orElseThrow(notFound("Box"));
         TrayEntity tray = trayRepository.findByBox_IdAndTrayNumber(boxId, request.trayNumber())
             .orElseThrow(notFound("Tray " + request.trayNumber() + " of this box"));
-        Integer position = spliceRepository.findFirstFreePosition(tray.getId(), tray.getCapacity());
-        if (position == null) {
-            throw conflict("Tray " + tray.getTrayNumber() + " is full");
+
+        Integer position;
+        if (request.positionNumber() != null) {
+            // posição fornecida: validar range e disponibilidade
+            if (request.positionNumber() > tray.getCapacity()) {
+                throw badRequest("Position " + request.positionNumber() + " exceeds tray capacity of " + tray.getCapacity());
+            }
+            if (spliceRepository.existsByTray_IdAndPositionNumber(tray.getId(), request.positionNumber())) {
+                throw conflict("Position " + request.positionNumber() + " is already occupied in this tray");
+            }
+            position = request.positionNumber();
+        } else {
+            // próxima livre
+            position = spliceRepository.findFirstFreePosition(tray.getId(), tray.getCapacity());
+            if (position == null) {
+                throw conflict("Tray " + tray.getTrayNumber() + " is full");
+            }
         }
 
         cableAttachmentService.requireFiberAttachedToBox(request.inputFiberId(), boxId);

@@ -1,5 +1,7 @@
 package com.geofiber.geofiber_backend.services.imports;
 
+import com.geofiber.geofiber_backend.services.common.OwnershipGuard;
+
 import com.geofiber.geofiber_backend.dto.imports.NetworkImportRequest;
 import com.geofiber.geofiber_backend.dto.imports.NetworkImportRequest.CableItem;
 import com.geofiber.geofiber_backend.dto.imports.NetworkImportRequest.ElementItem;
@@ -55,13 +57,17 @@ public class NetworkImportService {
     private final CableAttachmentRepository attachmentRepository;
     private final FiberTerminationRepository terminationRepository;
 
+    private final OwnershipGuard ownership;
+
     public NetworkImportService(
         BoxRepository boxRepository,
         OltRepository oltRepository,
         CableRepository cableRepository,
         CableAttachmentRepository attachmentRepository,
-        FiberTerminationRepository terminationRepository
+        FiberTerminationRepository terminationRepository,
+        OwnershipGuard ownership
     ) {
+        this.ownership = ownership;
         this.boxRepository = boxRepository;
         this.oltRepository = oltRepository;
         this.cableRepository = cableRepository;
@@ -165,7 +171,9 @@ public class NetworkImportService {
         Map<String, BoxAssetEntity> boxes = new HashMap<>();
         for (ElementItem item : elements) {
             if (item.action() == ImportActionEnum.MOVE && item.kind() == ImportKindEnum.BOX) {
-                boxes.put(item.ref(), boxRepository.findById(item.id()).orElseThrow(notFound("Box")));
+                BoxAssetEntity box = boxRepository.findById(item.id()).orElseThrow(notFound("Box"));
+                ownership.requireOwner(box.getCreatedBy());
+                boxes.put(item.ref(), box);
             }
         }
         return boxes;
@@ -175,7 +183,9 @@ public class NetworkImportService {
         Map<String, OltAssetEntity> olts = new HashMap<>();
         for (ElementItem item : elements) {
             if (item.action() == ImportActionEnum.MOVE && item.kind() == ImportKindEnum.OLT) {
-                olts.put(item.ref(), oltRepository.findById(item.id()).orElseThrow(notFound("OLT")));
+                OltAssetEntity olt = oltRepository.findById(item.id()).orElseThrow(notFound("OLT"));
+                ownership.requireOwner(olt.getCreatedBy());
+                olts.put(item.ref(), olt);
             }
         }
         return olts;
@@ -188,6 +198,7 @@ public class NetworkImportService {
                 continue;
             }
             CableAssetEntity cable = cableRepository.findById(item.id()).orElseThrow(notFound("Cable"));
+            ownership.requireOwner(cable.getCreatedBy());
             if (terminationRepository.existsConnectedFiberInCable(cable.getId())) {
                 throw conflict(CONNECTED_CABLE_MESSAGE);
             }
@@ -251,8 +262,9 @@ public class NetworkImportService {
         return "OLT:" + NameNormalizer.normalize(name);
     }
 
-    private static BoxAssetEntity newBox(ElementItem item, InfrastructureStatusEnum usageStatus) {
+    private BoxAssetEntity newBox(ElementItem item, InfrastructureStatusEnum usageStatus) {
         BoxAssetEntity box = new BoxAssetEntity();
+        box.setCreatedBy(ownership.currentUserId());
         box.setName(item.name().strip());
         box.setDescription(blankToNull(item.description()));
         box.setType(item.type());
@@ -261,8 +273,9 @@ public class NetworkImportService {
         return box;
     }
 
-    private static OltAssetEntity newOlt(ElementItem item, InfrastructureStatusEnum usageStatus) {
+    private OltAssetEntity newOlt(ElementItem item, InfrastructureStatusEnum usageStatus) {
         OltAssetEntity olt = new OltAssetEntity();
+        olt.setCreatedBy(ownership.currentUserId());
         olt.setName(item.name().strip());
         olt.setDescription(blankToNull(item.description()));
         olt.setUsageStatus(usageStatus);
@@ -270,8 +283,9 @@ public class NetworkImportService {
         return olt;
     }
 
-    private static CableAssetEntity newCable(CableItem item, InfrastructureStatusEnum usageStatus) {
+    private CableAssetEntity newCable(CableItem item, InfrastructureStatusEnum usageStatus) {
         CableAssetEntity cable = new CableAssetEntity();
+        cable.setCreatedBy(ownership.currentUserId());
         cable.setName(item.name().strip());
         cable.setDescription(blankToNull(item.description()));
         cable.setRole(item.role());

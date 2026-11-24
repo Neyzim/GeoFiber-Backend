@@ -1,5 +1,6 @@
 package com.geofiber.geofiber_backend.services.cable;
 
+import com.geofiber.geofiber_backend.services.common.OwnershipGuard;
 import com.geofiber.geofiber_backend.dto.cable.LooseTubeRequest;
 import com.geofiber.geofiber_backend.dto.cable.LooseTubeResponse;
 import com.geofiber.geofiber_backend.entities.cable.CableAssetEntity;
@@ -24,9 +25,13 @@ public class LooseTubeService {
     private final LooseTubeRepository looseTubeRepository;
     private final FiberRepository fiberRepository;
 
+    private final OwnershipGuard ownership;
+
     public LooseTubeService(
-        CableRepository cableRepository, LooseTubeRepository looseTubeRepository, FiberRepository fiberRepository
+        CableRepository cableRepository, LooseTubeRepository looseTubeRepository, FiberRepository fiberRepository,
+        OwnershipGuard ownership
     ) {
+        this.ownership = ownership;
         this.cableRepository = cableRepository;
         this.looseTubeRepository = looseTubeRepository;
         this.fiberRepository = fiberRepository;
@@ -34,6 +39,7 @@ public class LooseTubeService {
 
     public LooseTubeResponse create(UUID cableId, LooseTubeRequest request) {
         CableAssetEntity cable = cableRepository.findById(cableId).orElseThrow(notFound("Cable"));
+        ownership.requireOwner(cable.getCreatedBy());
         LooseTubeEntity tube = new LooseTubeEntity();
         tube.setCable(cable);
         requireCableCapacity(cable, looseTubeRepository.sumCapacityByCable(cableId) + request.capacity());
@@ -42,6 +48,7 @@ public class LooseTubeService {
 
     public LooseTubeResponse update(UUID cableId, UUID tubeId, LooseTubeRequest request) {
         LooseTubeEntity tube = getTube(cableId, tubeId);
+        ownership.requireOwner(tube.getCable().getCreatedBy());
         if (request.capacity() < fiberRepository.findHighestNumberInTube(tubeId)) {
             throw badRequest("Tube capacity is below its highest fiber number");
         }
@@ -52,6 +59,7 @@ public class LooseTubeService {
 
     public void delete(UUID cableId, UUID tubeId) {
         LooseTubeEntity tube = getTube(cableId, tubeId);
+        ownership.requireOwner(tube.getCable().getCreatedBy());
         if (fiberRepository.existsByTube_Id(tubeId)) {
             throw conflict("Tube still has fibers");
         }

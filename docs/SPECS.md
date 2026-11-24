@@ -216,8 +216,9 @@ cabo e as portas de atendimento geradas por um splitter excluído.
   da porta de atendimento, `termination_a_id < termination_b_id` em `optical_connection`.
 - **RT-05 Geometria:** PostGIS, SRID 4326 (Point para OLT/caixa/cliente, LineString para cabo).
 - **RT-06 Documentação:** OpenAPI em `/v3/api-docs` e Swagger UI em `/swagger-ui.html`, com tags e
-  resumos em português; guia em `API.md`.
-- **RT-07 Testes:** `./gradlew test`. Integração com Testcontainers (`postgis/postgis:16-3.4`),
+  resumos em português; guia em `API.md`. Desligados por padrão: só respondem com
+  `API_DOCS_ENABLED=true` (máquina de desenvolvimento); em produção, `404`.
+- **RT-07 Testes:** `./gradlew test`. Integração com Testcontainers (`postgis/postgis:18-3.7`),
   tabelas truncadas após cada teste; o banco local não é tocado. 74 testes na conclusão da Fase 1.
 - **RT-08 Transações:** cada operação de escrita é atômica; falha de regra no meio da operação
   desfaz tudo (ex.: splitter sem capacidade não deixa splitter nem portas).
@@ -258,6 +259,28 @@ cabo e as portas de atendimento geradas por um splitter excluído.
   ele: cabo pelo trecho de fibra; caixa por qualquer elemento dentro dela (incluindo a porta de
   atendimento do cliente); OLT pela porta PON. Cliente cancelado não conta. Sem rota alternativa.
   Um cliente conta uma vez. `totals` são exatos; a lista de clientes para em 2000 (`truncated`).
+- **RT-14 Autenticação e papéis** (`/api/v1/auth/*`, `/api/v1/users/*`): access token JWT (HS256,
+  15 min) no header `Authorization: Bearer`. Refresh token opaco de 14 dias em cookie
+  `geofiber_refresh` (HttpOnly, Secure, SameSite=Strict, Path=/api/v1/auth); no banco fica só o
+  SHA-256, e cada uso rotaciona o token. Reuso de refresh revogado derruba todas as sessões do
+  usuário. Login com mensagem única para e-mail inexistente e senha errada. Papéis `ADMIN` e
+  `MEMBER`; só `ADMIN` cria, desativa e redefine a senha de usuários. Desativar ou redefinir senha
+  revoga as sessões de refresh; o access token atual vale até expirar (no máximo 15 min). Senha com
+  pelo menos 8 caracteres. Admin não desativa a própria conta (`409`). Na primeira subida, sem
+  usuários, o administrador é criado a partir de `ADMIN_EMAIL`/`ADMIN_PASSWORD`/`ADMIN_NAME`.
+  Limite de login (`LoginAttemptLimiter`, em memória, por instância): 5 senhas erradas em 15 min
+  para o mesmo e-mail e endereço de origem bloqueiam esse par por 15 min → `429` com `Retry-After`
+  (segundos) e `detail` "Muitas tentativas de entrar. Espere 15 minutos e tente de novo.". Login
+  certo zera a contagem. Atrás de proxy reverso, `server.forward-headers-strategy=native` para usar o
+  IP do cliente.
+- **RT-15 Dono por criador**: caixa, cabo, OLT e cliente guardam o criador (`created_by`). Só o
+  dono altera ou apaga o elemento (`403 "Só o criador pode alterar este elemento."`); filhos
+  (tubos, fibras, bandejas, portas, splitters, anexos, emendas) seguem o dono do pai. Ligações entre
+  fibras (conexões e emendas) podem ser criadas ou desfeitas por qualquer dono dos dois cabos.
+  Ligação fibra↔porta (OLT, atendimento, saída de splitter) segue o dono da caixa ou da OLT da
+  porta. Leitura é aberta a qualquer usuário autenticado. Administrador não ganha permissão sobre
+  elementos de outras pessoas. Elementos existentes antes da migração ficam com o primeiro
+  administrador. O importador de rede exige dono para mover ou remodelar elementos já existentes.
 
 ---
 
@@ -271,6 +294,8 @@ cabo e as portas de atendimento geradas por um splitter excluído.
 - Numeração "maior + 1" e o trigger de fonte única não são protegidos contra requisições
   simultâneas (conflitos de numeração viram 409 pelas constraints).
 - Portas de atendimento geradas por splitter não preenchem lacunas na numeração.
+- Sem limite de tentativas no login. O access token não é revogado ao desativar um usuário
+  (vale até 15 min).
 
 ## 6. Referências
 

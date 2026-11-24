@@ -21,4 +21,12 @@ public final class ServiceErrors {
     public static ResponseStatusException conflict(String reason) {
         return new ResponseStatusException(HttpStatus.CONFLICT, reason);
     }
+
+    public static ResponseStatusException unauthorized(String reason) {
+        return new ResponseStatusException(HttpStatus.UNAUTHORIZED, reason);
+    }
+
+    public static ResponseStatusException forbidden(String reason) {
+        return new ResponseStatusException(HttpStatus.FORBIDDEN, reason);
+    }
 }

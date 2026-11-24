@@ -12,6 +12,6 @@ public class PostgisContainerConfig {
     @ServiceConnection
     PostgreSQLContainer postgis() {
         return new PostgreSQLContainer(
-            DockerImageName.parse("postgis/postgis:16-3.4").asCompatibleSubstituteFor("postgres"));
+            DockerImageName.parse("postgis/postgis:18-3.7").asCompatibleSubstituteFor("postgres"));
     }
 }

@@ -1,5 +1,7 @@
 package com.geofiber.geofiber_backend.services.customer;
 
+import com.geofiber.geofiber_backend.services.common.OwnershipGuard;
+
 import com.geofiber.geofiber_backend.dto.customer.CustomerHistoryResponse;
 import com.geofiber.geofiber_backend.dto.customer.CustomerRequest;
 import com.geofiber.geofiber_backend.dto.customer.CustomerResponse;
@@ -36,12 +38,16 @@ public class CustomerService {
     private final ServicePortRepository servicePortRepository;
     private final FiberTerminationRepository terminationRepository;
 
+    private final OwnershipGuard ownership;
+
     public CustomerService(
         CustomerRepository customerRepository,
         CustomerStatusHistoryRepository historyRepository,
         ServicePortRepository servicePortRepository,
-        FiberTerminationRepository terminationRepository
+        FiberTerminationRepository terminationRepository,
+        OwnershipGuard ownership
     ) {
+        this.ownership = ownership;
         this.customerRepository = customerRepository;
         this.historyRepository = historyRepository;
         this.servicePortRepository = servicePortRepository;
@@ -50,6 +56,7 @@ public class CustomerService {
 
     public CustomerResponse create(CustomerRequest request) {
         CustomerEntity customer = new CustomerEntity();
+        customer.setCreatedBy(ownership.currentUserId());
         apply(customer, request, request.status() == null ? CustomerStatusEnum.ACTIVE : request.status());
         customerRepository.save(customer);
         recordHistory(customer);
@@ -87,6 +94,7 @@ public class CustomerService {
 
     public CustomerResponse update(UUID id, CustomerRequest request) {
         CustomerEntity customer = getCustomer(id);
+        ownership.requireOwner(customer.getCreatedBy());
         CustomerStatusEnum previousStatus = customer.getStatus();
         ServicePortEntity previousPort = customer.getServicePort();
         apply(customer, request, request.status() == null ? previousStatus : request.status());
@@ -100,6 +108,7 @@ public class CustomerService {
     /** Remove um cadastro feito por engano, com o histórico. Para encerrar um contrato, use CANCELLED. */
     public void delete(UUID id) {
         CustomerEntity customer = getCustomer(id);
+        ownership.requireOwner(customer.getCreatedBy());
         release(customer.getServicePort());
         customerRepository.delete(customer);
     }

@@ -1,5 +1,7 @@
 package com.geofiber.geofiber_backend.services.connection;
 
+import com.geofiber.geofiber_backend.services.common.OwnershipGuard;
+
 import com.geofiber.geofiber_backend.dto.connection.ConnectionRequest;
 import com.geofiber.geofiber_backend.dto.connection.ConnectionResponse;
 import com.geofiber.geofiber_backend.entities.box.BoxAssetEntity;
@@ -29,12 +31,16 @@ public class ConnectionService {
     private final FiberTerminationService terminationService;
     private final CableAttachmentService cableAttachmentService;
 
+    private final OwnershipGuard ownership;
+
     public ConnectionService(
         BoxRepository boxRepository,
         OpticalConnectionRepository connectionRepository,
         FiberTerminationService terminationService,
-        CableAttachmentService cableAttachmentService
+        CableAttachmentService cableAttachmentService,
+        OwnershipGuard ownership
     ) {
+        this.ownership = ownership;
         this.boxRepository = boxRepository;
         this.connectionRepository = connectionRepository;
         this.terminationService = terminationService;
@@ -50,6 +56,7 @@ public class ConnectionService {
         cableAttachmentService.requireFiberAttachedToBox(request.fiberBId(), boxId);
         FiberTerminationEntity first = terminationService.getAvailable(request.fiberAId(), request.fiberAEnd());
         FiberTerminationEntity second = terminationService.getAvailable(request.fiberBId(), request.fiberBEnd());
+        ownership.requireOwnerOfAny(first.getFiber().getCable().getCreatedBy(), second.getFiber().getCable().getCreatedBy());
         OpticalConnectionEntity connection = terminationService.connect(
             first, second, OpticalConnectionTypeEnum.CONNECTOR, box, request.attenuationDb());
         connectionRepository.flush();
@@ -72,6 +79,9 @@ public class ConnectionService {
         if (!connection.getBox().getId().equals(boxId)) {
             throw notFound("Connection").get();
         }
+        ownership.requireOwnerOfAny(
+            connection.getTerminationA().getFiber().getCable().getCreatedBy(),
+            connection.getTerminationB().getFiber().getCable().getCreatedBy());
         if (connection.getType() == OpticalConnectionTypeEnum.FUSION) {
             throw conflict("Fusions are removed through the splice endpoint");
         }

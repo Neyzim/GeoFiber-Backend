@@ -1,0 +1,31 @@
+# Blueprint do Render (plano gratuito). Passo a passo e valores das variáveis: docs/PUBLICAR-GRATUITO.md
+# As variáveis com "sync: false" são preenchidas no painel do Render e nunca ficam no repositório.
+services:
+  - type: web
+    name: geofiber-backend
+    runtime: docker
+    plan: free
+    region: virginia
+    branch: master
+    autoDeploy: true
+    envVars:
+      - key: DB_POOL_SIZE
+        value: "5"
+      - key: SERVER_FORWARD_HEADERS_STRATEGY
+        value: native
+      - key: ADMIN_NAME
+        value: Administrador
+      - key: DATABASE_URL
+        sync: false
+      - key: DATABASE_USERNAME
+        sync: false
+      - key: DATABASE_PASSWORD
+        sync: false
+      - key: GEOFIBER_JWT_SECRET
+        sync: false
+      - key: CORS_ALLOWED_ORIGINS
+        sync: false
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false

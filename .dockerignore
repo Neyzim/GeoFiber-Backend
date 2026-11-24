@@ -1,0 +1,11 @@
+.git
+.gradle
+.superpowers
+build
+data
+.env
+*.env
+.idea
+.vscode
+docs
+deploy

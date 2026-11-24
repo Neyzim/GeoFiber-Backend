@@ -1,5 +1,6 @@
 package com.geofiber.geofiber_backend.services.serviceport;
 
+import com.geofiber.geofiber_backend.services.common.OwnershipGuard;
 import com.geofiber.geofiber_backend.dto.serviceport.ServicePortRequest;
 import com.geofiber.geofiber_backend.dto.serviceport.ServicePortResponse;
 import com.geofiber.geofiber_backend.entities.box.BoxAssetEntity;
@@ -47,6 +48,8 @@ public class ServicePortService {
     private final FiberTerminationService terminationService;
     private final CableAttachmentService cableAttachmentService;
 
+    private final OwnershipGuard ownership;
+
     public ServicePortService(
         BoxRepository boxRepository,
         ServicePortRepository servicePortRepository,
@@ -54,8 +57,10 @@ public class ServicePortService {
         CustomerRepository customerRepository,
         FiberTerminationRepository terminationRepository,
         FiberTerminationService terminationService,
-        CableAttachmentService cableAttachmentService
+        CableAttachmentService cableAttachmentService,
+        OwnershipGuard ownership
     ) {
+        this.ownership = ownership;
         this.boxRepository = boxRepository;
         this.servicePortRepository = servicePortRepository;
         this.splitterPortRepository = splitterPortRepository;
@@ -67,6 +72,7 @@ public class ServicePortService {
 
     public ServicePortResponse create(UUID boxId, ServicePortRequest request) {
         BoxAssetEntity box = boxRepository.findById(boxId).orElseThrow(notFound("Box"));
+        ownership.requireOwner(box.getCreatedBy());
         requireCto(box);
         ServicePortEntity port = new ServicePortEntity();
         port.setBox(box);
@@ -75,12 +81,14 @@ public class ServicePortService {
 
     public ServicePortResponse update(UUID boxId, UUID portId, ServicePortRequest request) {
         ServicePortEntity port = getPort(boxId, portId);
+        ownership.requireOwner(port.getBox().getCreatedBy());
         return apply(port, terminationRepository.findByServicePort_Id(portId).orElse(null),
             customerRepository.findByServicePort_Id(portId).orElse(null), request);
     }
 
     public void delete(UUID boxId, UUID portId) {
         ServicePortEntity port = getPort(boxId, portId);
+        ownership.requireOwner(port.getBox().getCreatedBy());
         if (customerRepository.findByServicePort_Id(portId).isPresent()) {
             throw conflict("Service port is serving a customer");
         }

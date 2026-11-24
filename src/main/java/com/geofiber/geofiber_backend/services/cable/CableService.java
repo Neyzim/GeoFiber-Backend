@@ -1,5 +1,7 @@
 package com.geofiber.geofiber_backend.services.cable;
 
+import com.geofiber.geofiber_backend.services.common.OwnershipGuard;
+
 import com.geofiber.geofiber_backend.dto.cable.CableRequest;
 import com.geofiber.geofiber_backend.dto.cable.CableResponse;
 import com.geofiber.geofiber_backend.entities.cable.CableAssetEntity;
@@ -23,9 +25,13 @@ public class CableService {
     private final EntityManager entityManager;
     private final LooseTubeRepository looseTubeRepository;
 
+    private final OwnershipGuard ownership;
+
     public CableService(
-        CableRepository cableRepository, EntityManager entityManager, LooseTubeRepository looseTubeRepository
+        CableRepository cableRepository, EntityManager entityManager, LooseTubeRepository looseTubeRepository,
+        OwnershipGuard ownership
     ) {
+        this.ownership = ownership;
         this.looseTubeRepository = looseTubeRepository;
         this.cableRepository = cableRepository;
         this.entityManager = entityManager;
@@ -33,6 +39,7 @@ public class CableService {
 
     public CableResponse create(CableRequest request) {
         CableAssetEntity cable = new CableAssetEntity();
+        cable.setCreatedBy(ownership.currentUserId());
         apply(cable, request);
         cableRepository.saveAndFlush(cable);
         entityManager.refresh(cable);
@@ -51,6 +58,7 @@ public class CableService {
 
     public CableResponse update(UUID id, CableRequest request) {
         CableAssetEntity cable = getCable(id);
+        ownership.requireOwner(cable.getCreatedBy());
         if (request.fiberCapacity() < looseTubeRepository.sumCapacityByCable(id)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                 "Cable fiber capacity is below the total capacity of its tubes");
@@ -64,6 +72,7 @@ public class CableService {
     /** Exclui o cabo e sua lista de elementos (cascade no banco). Bloqueado se houver tubos. */
     public void delete(UUID id) {
         CableAssetEntity cable = getCable(id);
+        ownership.requireOwner(cable.getCreatedBy());
         if (looseTubeRepository.existsByCable_Id(id)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Cable still has tubes");
         }

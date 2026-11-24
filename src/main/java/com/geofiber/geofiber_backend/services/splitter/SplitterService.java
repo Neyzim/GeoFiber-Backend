@@ -1,5 +1,6 @@
 package com.geofiber.geofiber_backend.services.splitter;
 
+import com.geofiber.geofiber_backend.services.common.OwnershipGuard;
 import com.geofiber.geofiber_backend.dto.splitter.SplitterPortResponse;
 import com.geofiber.geofiber_backend.dto.splitter.SplitterPortUpdateRequest;
 import com.geofiber.geofiber_backend.dto.splitter.SplitterRequest;
@@ -50,6 +51,8 @@ public class SplitterService {
     private final ServicePortService servicePortService;
     private final CustomerRepository customerRepository;
 
+    private final OwnershipGuard ownership;
+
     public SplitterService(
         BoxRepository boxRepository,
         SplitterRepository splitterRepository,
@@ -59,8 +62,10 @@ public class SplitterService {
         FiberTerminationService terminationService,
         CableAttachmentService cableAttachmentService,
         ServicePortService servicePortService,
-        CustomerRepository customerRepository
+        CustomerRepository customerRepository,
+        OwnershipGuard ownership
     ) {
+        this.ownership = ownership;
         this.boxRepository = boxRepository;
         this.splitterRepository = splitterRepository;
         this.splitterPortRepository = splitterPortRepository;
@@ -78,6 +83,7 @@ public class SplitterService {
      */
     public SplitterResponse create(UUID boxId, SplitterRequest request) {
         BoxAssetEntity box = boxRepository.findById(boxId).orElseThrow(notFound("Box"));
+        ownership.requireOwner(box.getCreatedBy());
         boolean createServicePorts = request.createServicePorts() == null
             ? box.getType() == BoxTypeEnum.CTO : request.createServicePorts();
         if (createServicePorts) {
@@ -119,6 +125,7 @@ public class SplitterService {
         if (!port.getSplitter().getId().equals(splitterId)) {
             throw notFound("Splitter port").get();
         }
+        ownership.requireOwner(port.getSplitter().getBox().getCreatedBy());
         ServicePortEntity servicePort = servicePortRepository.findBySplitterPort_Id(portId).orElse(null);
         if (servicePort != null && request.fiberId() != null) {
             throw conflict("Splitter port already feeds a service port");
@@ -143,6 +150,7 @@ public class SplitterService {
     /** Só {@code balanced} pode mudar; a razão define as portas e é imutável. */
     public SplitterResponse update(UUID boxId, UUID splitterId, SplitterRequest request) {
         SplitterEntity splitter = getSplitter(boxId, splitterId);
+        ownership.requireOwner(splitter.getBox().getCreatedBy());
         if (request.ratio() != splitter.getRatio()) {
             throw badRequest("Splitter ratio cannot be changed");
         }
@@ -157,6 +165,7 @@ public class SplitterService {
      */
     public void delete(UUID boxId, UUID splitterId) {
         SplitterEntity splitter = getSplitter(boxId, splitterId);
+        ownership.requireOwner(splitter.getBox().getCreatedBy());
         List<SplitterPortEntity> ports = splitterPortRepository.findAllBySplitter_Id(splitterId);
         List<UUID> portIds = ports.stream().map(SplitterPortEntity::getId).toList();
         List<ServicePortEntity> servicePorts = servicePortRepository.findAllBySplitterPort_IdIn(portIds);

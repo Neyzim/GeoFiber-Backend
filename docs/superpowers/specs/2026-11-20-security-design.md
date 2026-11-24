@@ -1,6 +1,6 @@
 # Segurança básica (autenticação e autorização por criador)
 
-Status: aprovado em 2026-11-20.
+Status: implementado em 2026-11-21 (plano em `docs/superpowers/plans/2026-11-20-security.md`). Ver `SPECS.md` RT-14 e RT-15.
 
 ## Intenção
 

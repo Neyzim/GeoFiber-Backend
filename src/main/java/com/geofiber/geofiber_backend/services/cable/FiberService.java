@@ -1,5 +1,6 @@
 package com.geofiber.geofiber_backend.services.cable;
 
+import com.geofiber.geofiber_backend.services.common.OwnershipGuard;
 import com.geofiber.geofiber_backend.dto.cable.FiberRequest;
 import com.geofiber.geofiber_backend.dto.cable.FiberResponse;
 import com.geofiber.geofiber_backend.entities.cable.FiberEntity;
@@ -28,12 +29,16 @@ public class FiberService {
     private final FiberTerminationRepository terminationRepository;
     private final FiberTerminationService terminationService;
 
+    private final OwnershipGuard ownership;
+
     public FiberService(
         LooseTubeRepository looseTubeRepository,
         FiberRepository fiberRepository,
         FiberTerminationRepository terminationRepository,
-        FiberTerminationService terminationService
+        FiberTerminationService terminationService,
+        OwnershipGuard ownership
     ) {
+        this.ownership = ownership;
         this.looseTubeRepository = looseTubeRepository;
         this.fiberRepository = fiberRepository;
         this.terminationRepository = terminationRepository;
@@ -42,6 +47,7 @@ public class FiberService {
 
     public FiberResponse create(UUID tubeId, FiberRequest request) {
         LooseTubeEntity tube = looseTubeRepository.findById(tubeId).orElseThrow(notFound("Loose tube"));
+        ownership.requireOwner(tube.getCable().getCreatedBy());
         FiberEntity fiber = new FiberEntity();
         fiber.setCable(tube.getCable());
         fiber.setTube(tube);
@@ -54,6 +60,7 @@ public class FiberService {
 
     public FiberResponse update(UUID tubeId, UUID fiberId, FiberRequest request) {
         FiberEntity fiber = getFiber(tubeId, fiberId);
+        ownership.requireOwner(fiber.getCable().getCreatedBy());
         apply(fiber, request);
         return toResponse(fiberRepository.saveAndFlush(fiber));
     }
@@ -64,6 +71,7 @@ public class FiberService {
             throw badRequest("OCCUPIED is set automatically by connections");
         }
         FiberEntity fiber = getFiber(tubeId, fiberId);
+        ownership.requireOwner(fiber.getCable().getCreatedBy());
         requireDisconnected(fiberId);
         fiber.setStatus(status);
         return toResponse(fiberRepository.saveAndFlush(fiber));
@@ -71,6 +79,7 @@ public class FiberService {
 
     public void delete(UUID tubeId, UUID fiberId) {
         FiberEntity fiber = getFiber(tubeId, fiberId);
+        ownership.requireOwner(fiber.getCable().getCreatedBy());
         requireDisconnected(fiberId);
         terminationRepository.deleteAll(terminationRepository.findAllByFiber_Id(fiberId));
         fiberRepository.delete(fiber);

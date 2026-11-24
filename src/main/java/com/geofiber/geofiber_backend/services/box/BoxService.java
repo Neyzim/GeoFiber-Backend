@@ -1,5 +1,7 @@
 package com.geofiber.geofiber_backend.services.box;
 
+import com.geofiber.geofiber_backend.services.common.OwnershipGuard;
+
 import com.geofiber.geofiber_backend.dto.box.BoxRequest;
 import com.geofiber.geofiber_backend.dto.box.BoxResponse;
 import com.geofiber.geofiber_backend.dto.geo.CoordinateDto;
@@ -31,14 +33,18 @@ public class BoxService {
     private final OpticalConnectionRepository connectionRepository;
     private final CableAttachmentRepository attachmentRepository;
 
+    private final OwnershipGuard ownership;
+
     public BoxService(
         BoxRepository boxRepository,
         ServicePortRepository servicePortRepository,
         SplitterRepository splitterRepository,
         TrayRepository trayRepository,
         OpticalConnectionRepository connectionRepository,
-        CableAttachmentRepository attachmentRepository
+        CableAttachmentRepository attachmentRepository,
+        OwnershipGuard ownership
     ) {
+        this.ownership = ownership;
         this.boxRepository = boxRepository;
         this.servicePortRepository = servicePortRepository;
         this.splitterRepository = splitterRepository;
@@ -49,6 +55,7 @@ public class BoxService {
 
     public BoxResponse create(BoxRequest request) {
         BoxAssetEntity box = new BoxAssetEntity();
+        box.setCreatedBy(ownership.currentUserId());
         apply(box, request);
         return toResponse(boxRepository.saveAndFlush(box));
     }
@@ -65,6 +72,7 @@ public class BoxService {
 
     public BoxResponse update(UUID id, BoxRequest request) {
         BoxAssetEntity box = getBox(id);
+        ownership.requireOwner(box.getCreatedBy());
         if (box.getType() == BoxTypeEnum.CTO && request.type() != BoxTypeEnum.CTO
             && servicePortRepository.existsByBox_Id(id)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Box has service ports and must remain a CTO");
@@ -83,6 +91,7 @@ public class BoxService {
 
     public void delete(UUID id) {
         BoxAssetEntity box = getBox(id);
+        ownership.requireOwner(box.getCreatedBy());
         boolean inUse = splitterRepository.existsByBox_Id(id) || trayRepository.existsByBox_Id(id)
             || servicePortRepository.existsByBox_Id(id) || connectionRepository.existsByBox_Id(id)
             || attachmentRepository.existsByBox_Id(id);

@@ -1,5 +1,7 @@
 package com.geofiber.geofiber_backend.services.olt;
 
+import com.geofiber.geofiber_backend.entities.olt.OltAssetEntity;
+import com.geofiber.geofiber_backend.services.common.OwnershipGuard;
 import com.geofiber.geofiber_backend.dto.olt.OltPortRequest;
 import com.geofiber.geofiber_backend.dto.olt.OltPortResponse;
 import com.geofiber.geofiber_backend.entities.olt.OltPortEntity;
@@ -32,13 +34,17 @@ public class OltPortService {
     private final FiberTerminationService terminationService;
     private final CableAttachmentService cableAttachmentService;
 
+    private final OwnershipGuard ownership;
+
     public OltPortService(
         OltRepository oltRepository,
         OltPortRepository oltPortRepository,
         FiberTerminationRepository terminationRepository,
         FiberTerminationService terminationService,
-        CableAttachmentService cableAttachmentService
+        CableAttachmentService cableAttachmentService,
+        OwnershipGuard ownership
     ) {
+        this.ownership = ownership;
         this.oltRepository = oltRepository;
         this.oltPortRepository = oltPortRepository;
         this.terminationRepository = terminationRepository;
@@ -48,17 +54,21 @@ public class OltPortService {
 
     public OltPortResponse create(UUID oltId, OltPortRequest request) {
         OltPortEntity port = new OltPortEntity();
-        port.setOlt(oltRepository.findById(oltId).orElseThrow(notFound("OLT")));
+        OltAssetEntity olt = oltRepository.findById(oltId).orElseThrow(notFound("OLT"));
+        ownership.requireOwner(olt.getCreatedBy());
+        port.setOlt(olt);
         return apply(port, null, request);
     }
 
     public OltPortResponse update(UUID oltId, UUID portId, OltPortRequest request) {
         OltPortEntity port = getPort(oltId, portId);
+        ownership.requireOwner(port.getOlt().getCreatedBy());
         return apply(port, terminationRepository.findByOltPort_Id(portId).orElse(null), request);
     }
 
     public void delete(UUID oltId, UUID portId) {
         OltPortEntity port = getPort(oltId, portId);
+        ownership.requireOwner(port.getOlt().getCreatedBy());
         if (terminationRepository.findByOltPort_Id(portId).isPresent()) {
             throw conflict("OLT port is connected");
         }

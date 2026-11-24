@@ -49,4 +49,8 @@ public class CustomerEntity {
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "service_port_id", unique = true)
     private ServicePortEntity servicePort;
+
+    /** Usuário que cadastrou o cliente. Nulo só em linhas anteriores à V8. */
+    @Column(name = "created_by")
+    private UUID createdBy;
 }

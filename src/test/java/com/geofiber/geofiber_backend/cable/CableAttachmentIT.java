@@ -129,7 +129,8 @@ class CableAttachmentIT extends IntegrationTest {
 
     private String mvcGet(String url) {
         try {
-            return mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get(url))
+            return mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get(url)
+                    .header("Authorization", "Bearer " + token))
                 .andReturn().getResponse().getContentAsString();
         } catch (Exception exception) {
             throw new IllegalStateException(exception);

@@ -1,0 +1,32 @@
+# Serviço systemd do backend GeoFiber (ver docs/PUBLICAR.md, seção 4).
+# Instalar:
+#   sudo cp deploy/geofiber-backend.service /etc/systemd/system/
+#   sudo systemctl daemon-reload && sudo systemctl enable --now geofiber-backend
+# Logs: journalctl -u geofiber-backend -f
+
+[Unit]
+Description=GeoFiber backend (Spring Boot)
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=geofiber
+Group=geofiber
+WorkingDirectory=/opt/geofiber
+# Variáveis de produção (modelo em deploy/backend.env.example). Arquivo com chmod 600, dono geofiber.
+EnvironmentFile=/etc/geofiber/backend.env
+ExecStart=/usr/bin/java -XX:MaxRAMPercentage=75 -jar /opt/geofiber/geofiber-backend.jar
+# A JVM sai com 143 ao receber SIGTERM: é parada normal, não falha.
+SuccessExitStatus=143
+Restart=on-failure
+RestartSec=10
+
+# Endurecimento: o processo não ganha privilégios nem escreve fora do próprio /tmp.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target

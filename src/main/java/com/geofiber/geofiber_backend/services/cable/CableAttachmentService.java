@@ -1,5 +1,6 @@
 package com.geofiber.geofiber_backend.services.cable;
 
+import com.geofiber.geofiber_backend.services.common.OwnershipGuard;
 import com.geofiber.geofiber_backend.dto.cable.CableAttachmentRequest;
 import com.geofiber.geofiber_backend.dto.cable.CableAttachmentResponse;
 import com.geofiber.geofiber_backend.entities.cable.CableAssetEntity;
@@ -38,14 +39,18 @@ public class CableAttachmentService {
     private final FiberTerminationRepository terminationRepository;
     private final FiberRepository fiberRepository;
 
+    private final OwnershipGuard ownership;
+
     public CableAttachmentService(
         CableRepository cableRepository,
         CableAttachmentRepository attachmentRepository,
         BoxRepository boxRepository,
         OltRepository oltRepository,
         FiberTerminationRepository terminationRepository,
-        FiberRepository fiberRepository
+        FiberRepository fiberRepository,
+        OwnershipGuard ownership
     ) {
+        this.ownership = ownership;
         this.cableRepository = cableRepository;
         this.attachmentRepository = attachmentRepository;
         this.boxRepository = boxRepository;
@@ -57,6 +62,7 @@ public class CableAttachmentService {
     /** Substitui a lista inteira. Vazia é permitida; senão: START, PASS_THROUGH*, END. */
     public List<CableAttachmentResponse> replace(UUID cableId, List<CableAttachmentRequest> request) {
         CableAssetEntity cable = cableRepository.findById(cableId).orElseThrow(notFound("Cable"));
+        ownership.requireOwner(cable.getCreatedBy());
         validateShape(request);
 
         for (CableAttachmentEntity current : attachmentRepository.findAllByCable_IdOrderBySequenceNumberAsc(cableId)) {

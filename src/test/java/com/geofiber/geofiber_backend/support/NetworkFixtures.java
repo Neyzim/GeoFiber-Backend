@@ -16,9 +16,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 public class NetworkFixtures {
     private static final String API = "/api/v1";
     private final MockMvc mvc;
+    private final String authorization;
 
-    public NetworkFixtures(MockMvc mvc) {
+    public NetworkFixtures(MockMvc mvc, String token) {
         this.mvc = mvc;
+        this.authorization = "Bearer " + token;
     }
 
     public UUID olt() {
@@ -69,19 +71,23 @@ public class NetworkFixtures {
     }
 
     public String getJson(String url, int expectedStatus) {
-        return perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get(url), expectedStatus);
+        return perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get(url)
+            .header("Authorization", authorization), expectedStatus);
     }
 
     public String postJson(String url, String body, int expectedStatus) {
-        return perform(post(url).contentType(MediaType.APPLICATION_JSON).content(body), expectedStatus);
+        return perform(post(url).header("Authorization", authorization)
+            .contentType(MediaType.APPLICATION_JSON).content(body), expectedStatus);
     }
 
     public String putJson(String url, String body, int expectedStatus) {
-        return perform(put(url).contentType(MediaType.APPLICATION_JSON).content(body), expectedStatus);
+        return perform(put(url).header("Authorization", authorization)
+            .contentType(MediaType.APPLICATION_JSON).content(body), expectedStatus);
     }
 
     public String delete(String url, int expectedStatus) {
-        return perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete(url), expectedStatus);
+        return perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete(url)
+            .header("Authorization", authorization), expectedStatus);
     }
 
     public static UUID id(String json) {

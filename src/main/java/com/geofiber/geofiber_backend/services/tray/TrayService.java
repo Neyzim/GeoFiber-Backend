@@ -1,5 +1,6 @@
 package com.geofiber.geofiber_backend.services.tray;
 
+import com.geofiber.geofiber_backend.services.common.OwnershipGuard;
 import com.geofiber.geofiber_backend.dto.tray.TrayRequest;
 import com.geofiber.geofiber_backend.dto.tray.TrayResponse;
 import com.geofiber.geofiber_backend.entities.box.BoxAssetEntity;
@@ -24,7 +25,13 @@ public class TrayService {
     private final TrayRepository trayRepository;
     private final SpliceRepository spliceRepository;
 
-    public TrayService(BoxRepository boxRepository, TrayRepository trayRepository, SpliceRepository spliceRepository) {
+    private final OwnershipGuard ownership;
+
+    public TrayService(
+        BoxRepository boxRepository, TrayRepository trayRepository, SpliceRepository spliceRepository,
+        OwnershipGuard ownership
+    ) {
+        this.ownership = ownership;
         this.boxRepository = boxRepository;
         this.trayRepository = trayRepository;
         this.spliceRepository = spliceRepository;
@@ -32,6 +39,7 @@ public class TrayService {
 
     public TrayResponse create(UUID boxId, TrayRequest request) {
         BoxAssetEntity box = boxRepository.findById(boxId).orElseThrow(notFound("Box"));
+        ownership.requireOwner(box.getCreatedBy());
         TrayEntity tray = new TrayEntity();
         tray.setBox(box);
         return toResponse(trayRepository.saveAndFlush(apply(tray, request)));
@@ -39,6 +47,7 @@ public class TrayService {
 
     public TrayResponse update(UUID boxId, UUID trayId, TrayRequest request) {
         TrayEntity tray = getTray(boxId, trayId);
+        ownership.requireOwner(tray.getBox().getCreatedBy());
         if (request.capacity() < spliceRepository.findLastPositionInTray(trayId)) {
             throw badRequest("Tray capacity is below its highest used position");
         }
@@ -47,6 +56,7 @@ public class TrayService {
 
     public void delete(UUID boxId, UUID trayId) {
         TrayEntity tray = getTray(boxId, trayId);
+        ownership.requireOwner(tray.getBox().getCreatedBy());
         if (spliceRepository.countByTray_Id(trayId) > 0) {
             throw conflict("Tray still has splices");
         }

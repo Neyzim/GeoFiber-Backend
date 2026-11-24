@@ -1,5 +1,7 @@
 package com.geofiber.geofiber_backend.services.olt;
 
+import com.geofiber.geofiber_backend.services.common.OwnershipGuard;
+
 import com.geofiber.geofiber_backend.dto.olt.OltRequest;
 import com.geofiber.geofiber_backend.dto.olt.OltResponse;
 import com.geofiber.geofiber_backend.entities.olt.OltAssetEntity;
@@ -24,9 +26,13 @@ public class OltService {
     private final OltPortRepository oltPortRepository;
     private final CableAttachmentRepository attachmentRepository;
 
+    private final OwnershipGuard ownership;
+
     public OltService(
-        OltRepository oltRepository, OltPortRepository oltPortRepository, CableAttachmentRepository attachmentRepository
+        OltRepository oltRepository, OltPortRepository oltPortRepository, CableAttachmentRepository attachmentRepository,
+        OwnershipGuard ownership
     ) {
+        this.ownership = ownership;
         this.oltRepository = oltRepository;
         this.oltPortRepository = oltPortRepository;
         this.attachmentRepository = attachmentRepository;
@@ -34,6 +40,7 @@ public class OltService {
 
     public OltResponse create(OltRequest request) {
         OltAssetEntity olt = new OltAssetEntity();
+        olt.setCreatedBy(ownership.currentUserId());
         apply(olt, request);
         return toResponse(oltRepository.saveAndFlush(olt));
     }
@@ -50,12 +57,14 @@ public class OltService {
 
     public OltResponse update(UUID id, OltRequest request) {
         OltAssetEntity olt = getOlt(id);
+        ownership.requireOwner(olt.getCreatedBy());
         apply(olt, request);
         return toResponse(oltRepository.saveAndFlush(olt));
     }
 
     public void delete(UUID id) {
         OltAssetEntity olt = getOlt(id);
+        ownership.requireOwner(olt.getCreatedBy());
         if (oltPortRepository.existsByOlt_Id(id) || attachmentRepository.existsByOlt_Id(id)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "OLT still has ports or attached cables");
         }

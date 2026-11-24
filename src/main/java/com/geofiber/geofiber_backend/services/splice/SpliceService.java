@@ -1,5 +1,7 @@
 package com.geofiber.geofiber_backend.services.splice;
 
+import com.geofiber.geofiber_backend.services.common.OwnershipGuard;
+
 import com.geofiber.geofiber_backend.dto.splice.SpliceRequest;
 import com.geofiber.geofiber_backend.dto.splice.SpliceResponse;
 import com.geofiber.geofiber_backend.entities.box.BoxAssetEntity;
@@ -39,14 +41,18 @@ public class SpliceService {
     private final FiberTerminationService terminationService;
     private final CableAttachmentService cableAttachmentService;
 
+    private final OwnershipGuard ownership;
+
     public SpliceService(
         BoxRepository boxRepository,
         TrayRepository trayRepository,
         SpliceRepository spliceRepository,
         OpticalConnectionRepository connectionRepository,
         FiberTerminationService terminationService,
-        CableAttachmentService cableAttachmentService
+        CableAttachmentService cableAttachmentService,
+        OwnershipGuard ownership
     ) {
+        this.ownership = ownership;
         this.boxRepository = boxRepository;
         this.trayRepository = trayRepository;
         this.spliceRepository = spliceRepository;
@@ -89,6 +95,7 @@ public class SpliceService {
         FiberTerminationEntity output = terminationService.getAvailable(request.outputFiberId(),
             request.outputFiberEnd() == null ? FiberEndEnum.A : request.outputFiberEnd());
 
+        ownership.requireOwnerOfAny(input.getFiber().getCable().getCreatedBy(), output.getFiber().getCable().getCreatedBy());
         SpliceEntity splice = new SpliceEntity();
         splice.setBox(box);
         splice.setTray(tray);
@@ -116,6 +123,8 @@ public class SpliceService {
         if (!splice.getBox().getId().equals(boxId)) {
             throw notFound("Splice").get();
         }
+        ownership.requireOwnerOfAny(
+            splice.getInputFiber().getCable().getCreatedBy(), splice.getOutputFiber().getCable().getCreatedBy());
         OpticalConnectionEntity connection = splice.getConnection();
         terminationService.release(connection.getTerminationA());
         terminationService.release(connection.getTerminationB());

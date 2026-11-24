@@ -17,7 +17,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class ApiErrorsIT extends IntegrationTest {
     @Test
     void validationErrorListsFields() throws Exception {
-        mvc.perform(post("/api/v1/boxes").contentType(MediaType.APPLICATION_JSON).content("{\"type\":\"CTO\"}"))
+        mvc.perform(post("/api/v1/boxes").header("Authorization", "Bearer " + token).contentType(MediaType.APPLICATION_JSON).content("{\"type\":\"CTO\"}"))
             .andExpect(status().isBadRequest())
             .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
             .andExpect(jsonPath("$.title", notNullValue()))
@@ -26,14 +26,14 @@ class ApiErrorsIT extends IntegrationTest {
 
     @Test
     void malformedJsonIsProblemDetail() throws Exception {
-        mvc.perform(post("/api/v1/boxes").contentType(MediaType.APPLICATION_JSON).content("{"))
+        mvc.perform(post("/api/v1/boxes").header("Authorization", "Bearer " + token).contentType(MediaType.APPLICATION_JSON).content("{"))
             .andExpect(status().isBadRequest())
             .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON));
     }
 
     @Test
     void unknownIdIs404ProblemDetail() throws Exception {
-        mvc.perform(get("/api/v1/boxes/" + UUID.randomUUID()))
+        mvc.perform(get("/api/v1/boxes/" + UUID.randomUUID()).header("Authorization", "Bearer " + token))
             .andExpect(status().isNotFound())
             .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
             .andExpect(jsonPath("$.detail").value("Box not found"));
@@ -43,7 +43,7 @@ class ApiErrorsIT extends IntegrationTest {
     void duplicateTubeNumberHasSpecificMessage() throws Exception {
         UUID cable = fx.cable(24);
         fx.tube(cable, 1, 12);
-        mvc.perform(post("/api/v1/cables/" + cable + "/tubes").contentType(MediaType.APPLICATION_JSON)
+        mvc.perform(post("/api/v1/cables/" + cable + "/tubes").header("Authorization", "Bearer " + token).contentType(MediaType.APPLICATION_JSON)
                 .content("{\"tubeNumber\":1,\"capacity\":12,\"color\":\"GREEN\"}"))
             .andExpect(status().isConflict())
             .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
@@ -52,7 +52,7 @@ class ApiErrorsIT extends IntegrationTest {
 
     @Test
     void invalidEnumIs400() throws Exception {
-        mvc.perform(post("/api/v1/boxes").contentType(MediaType.APPLICATION_JSON).content("""
+        mvc.perform(post("/api/v1/boxes").header("Authorization", "Bearer " + token).contentType(MediaType.APPLICATION_JSON).content("""
                 {"name":"X","type":"XYZ","location":{"longitude":0,"latitude":0}}"""))
             .andExpect(status().isBadRequest())
             .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON));
@@ -63,6 +63,7 @@ class ApiErrorsIT extends IntegrationTest {
         UUID cable = fx.cable(12);
         mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
                 .put("/api/v1/cables/" + cable + "/attachments")
+                .header("Authorization", "Bearer " + token)
                 .contentType(MediaType.APPLICATION_JSON).content("[null,null]"))
             .andExpect(status().isBadRequest())
             .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON));

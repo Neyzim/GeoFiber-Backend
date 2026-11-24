@@ -20,7 +20,8 @@ Backend de um mapeador de redes FTTH (open source): Java 17, Spring Boot 4.1.2 /
 docker compose up -d                 # PostGIS local, configurado pelo .env
 ```
 
-- Swagger UI: `http://localhost:8080/swagger-ui.html`; OpenAPI: `/v3/api-docs`.
+- Swagger UI: `http://localhost:8080/swagger-ui.html`; OpenAPI: `/v3/api-docs`. Desligados por padrão: só respondem com `API_DOCS_ENABLED=true` no `.env` (desenvolvimento).
+- Publicação (produção): `docs/PUBLICAR.md` (variáveis, proxy, banco, conferência). Teste gratuito (Supabase + Render + Netlify, `Dockerfile`, `render.yaml`): `docs/PUBLICAR-GRATUITO.md`.
 - Configuração vem de `.env` (importado por `spring.config.import`) ou variáveis `DATABASE_URL`, `DATABASE_USERNAME`, `DATABASE_PASSWORD`, `CORS_ALLOWED_ORIGINS` (padrão `http://localhost:4200`).
 - Não há linter configurado.
 
@@ -57,6 +58,6 @@ Pacote base `com.geofiber.geofiber_backend`, organizado **por camada e depois po
 
 ## Testes
 
-- Testes de integração (`*IT`) estendem `support/IntegrationTest`: PostGIS real (`postgis/postgis:16-3.4`) via Testcontainers, MockMvc, e **TRUNCATE de todas as tabelas após cada teste**.
+- Testes de integração (`*IT`) estendem `support/IntegrationTest`: PostGIS real (`postgis/postgis:18-3.7`) via Testcontainers, MockMvc, e **TRUNCATE de todas as tabelas após cada teste**.
 - `support/NetworkFixtures` monta a rede pela própria API (caixas, cabos, fibras, splitters...) — reutilize-o em vez de inserir dados direto.
 - Testes unitários puros ficam em `services/...` (ex.: `PortStatusResolverTest`).

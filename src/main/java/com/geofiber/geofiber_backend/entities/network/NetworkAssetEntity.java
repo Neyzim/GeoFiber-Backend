@@ -34,6 +34,10 @@ public abstract class NetworkAssetEntity {
     @Column(name = "usage_status", nullable = false, length = 20)
     private InfrastructureStatusEnum usageStatus = InfrastructureStatusEnum.PLANNED;
 
+    /** Usuário que criou o elemento. Nulo só em linhas anteriores à V8 (ver BootstrapAdminRunner). */
+    @Column(name = "created_by")
+    private UUID createdBy;
+
     @PrePersist
     protected void applyDefaults() {
         if (usageStatus == null) {

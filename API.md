@@ -10,7 +10,45 @@ A referência completa de cada endpoint (campos, tipos, exemplos e respostas) fi
 |---|---|
 | Swagger UI | `http://localhost:8080/swagger-ui.html` |
 | Especificação OpenAPI (JSON) | `http://localhost:8080/v3/api-docs` |
+
+O Swagger e o OpenAPI só respondem com `API_DOCS_ENABLED=true` no `.env` (desenvolvimento). Em
+produção, deixe a variável sem valor: as duas rotas devolvem `404`.
 | Prefixo de todos os endpoints | `/api/v1` |
+
+## Autenticação
+
+Todas as rotas, exceto `/api/v1/auth/login`, `/refresh`, `/logout` e a documentação, exigem o
+header `Authorization: Bearer <accessToken>`.
+
+1. `POST /api/v1/auth/login` com `{"email", "password"}` → `200` com `{"accessToken", "expiresIn"}`
+   (segundos) e o cookie `geofiber_refresh`. Credenciais erradas → `401`. Depois de 5 erros em
+   15 minutos para o mesmo e-mail e origem → `429` com `Retry-After` (segundos) por 15 minutos.
+2. Use o `accessToken` no header. Ele vale 15 minutos.
+3. `POST /api/v1/auth/refresh` (sem corpo; o navegador envia o cookie) → `200` com um novo
+   `accessToken` e um cookie novo. O refresh antigo deixa de valer. Sem cookie válido → `401`.
+4. `POST /api/v1/auth/logout` → `204` e o cookie é expirado.
+
+**Para o frontend:** use `credentials: 'include'` nas chamadas (o cookie é `HttpOnly`, o JavaScript
+não o lê). A origem do front precisa estar em `CORS_ALLOWED_ORIGINS`. O cookie é `Secure`, então
+o navegador só o aceita por HTTPS (ou em `localhost`).
+
+Respostas: `401` (sem token, credenciais inválidas ou sessão expirada) e `403` (usuário sem
+permissão, ou que não é o dono do elemento).
+
+**Usuários (só `ADMIN`):**
+- `GET /api/v1/users` → `200` com a lista de usuários (ativos e inativos), por nome. Sem senha.
+- `POST /api/v1/users` com `{"name", "email", "password", "role"}` (`ADMIN` ou `MEMBER`) → `201`.
+- `PATCH /api/v1/users/{id}/active` com `{"active": false}` → desativa e revoga as sessões.
+- `PUT /api/v1/users/{id}/password` com `{"password"}` → redefine e revoga as sessões.
+
+**Dono:** cada caixa, cabo, OLT e cliente tem um criador. Só ele altera ou apaga o elemento e
+os filhos dele; outros usuários leem normalmente. Ligações entre fibras podem ser mudadas por
+qualquer dono dos dois cabos envolvidos.
+
+**Configuração** (variáveis de ambiente ou `.env`):
+- `GEOFIBER_JWT_SECRET`: chave de pelo menos 32 bytes. Obrigatória.
+- `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `ADMIN_NAME`: usados só na primeira subida, quando não há
+  usuário. Sem eles, a aplicação não sobe nessa situação.
 
 ## Como rodar
 
